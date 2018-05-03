@@ -1,0 +1,168 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define BLOCK_SIZE 16
+
+__global__ 
+void MultiMatrices(float *d_ma, float *d_mb, float *d_mp, int Width, int m, int n){
+    /*
+    int Row = blockIdx.y*blockDim.y+threadIdx.y;
+
+    int Col = blockIdx.x*blockDim.x+threadIdx.x;
+
+    if ((Row < m) && (Col < n)) {
+        
+        
+        printf("d_ma:\n");
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < Width; j++) {
+                printf("%f ", d_ma[i*m + j]);
+            }
+            printf("\n");
+        } 
+        
+
+        float Pvalue = 0;
+        
+        for (int k = 0; k < Width; k++) {
+            
+            Pvalue += d_ma[Row*Width+k]*d_mb[k*n+Col];
+
+            printf("-Row:%d\n Col:%d\n k:%d\n Pvalue:%f\n d_ma: %f\n d_mb: %f\n Row*Width+k: %d\n k*n+Col: %d\n", Row, Col, k, Width, Pvalue, d_ma[Row*Width+k], d_mb[k*n+Col], Row*Width+k, k*n+Col);
+        }   
+        
+        d_mp[Row*n+Col] = Pvalue;
+    }
+
+    */
+
+}
+
+void llenarMatriz(float *matrix, int x, int y, float v){
+    for (int i = 0; i < x; i++) {       
+        for (int j = 0; j < y; j++) {
+            matrix[i*x + j] = v;
+        }
+    }
+}
+
+
+void imprimirMatriz(float *matrix, int x, int y){
+    for (int i = 0; i < x; i++) {
+        for (int j = 0; j < y; j++) {
+            printf("%f ", matrix[i*x + j]);
+        }
+        printf("\n");
+    }
+}
+
+
+int main(int argc, char *argv[]){
+    //Programa <archivo>
+
+    if ( argc != 2 ) {
+        //Salir del programa
+        printf("Fallo al ingresar el argumento\n");
+    }
+    else 
+    {
+        FILE *fp;
+        float floatBuffer;
+
+        int ma, ka, kb, nb;
+        int m, k, n;
+    
+        float *h_a, *h_b, *h_c;
+        float *d_a, *d_b, *d_c;
+
+        fp = fopen (argv[1], "r");
+        if (fp == NULL) {
+            perror ("Error al abrir el archivo");
+        }
+        else
+        {
+                     
+            fscanf(fp, "%d", &ma);
+            fscanf(fp, "%d", &ka);
+
+            cudaMallocHost((void **) &h_a, sizeof(float)*ma*ka);
+
+            for (int i = 0; i < ma; i++) {
+                for (int j = 0; j < ka; j++) {
+                    fscanf(fp, "%f", &floatBuffer);
+                    h_a[i*ma + j] = floatBuffer;
+                }
+            }
+                
+            fscanf(fp, "%d", &kb);
+            fscanf(fp, "%d", &nb);
+
+            cudaMallocHost((void **) &h_b, sizeof(float)*kb*nb);
+
+            for (int i = 0; i < kb; i++) {
+                for (int j = 0; j < nb; j++) {
+                    fscanf(fp, "%f", &floatBuffer);
+                    h_b[i*kb + j] = floatBuffer;
+                }
+            }
+            
+            fclose(fp);
+        }
+
+        if (ka != kb) {
+            printf("la matriz no cumple con la condicion de multiplicatividad");
+            return 0;
+        }
+
+        m = ma;
+        k = ka;
+        n = nb;
+               
+
+        cudaMallocHost((void **) &h_c, sizeof(float)*m*n);
+        llenarMatriz(h_c, m, n, 0);
+        
+        
+        imprimirMatriz(h_a, m, k);
+        imprimirMatriz(h_b, k, n);
+        imprimirMatriz(h_c, m, n);
+        
+        cudaMemcpy(d_a, h_a, sizeof(float)*m*k, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_b, h_b, sizeof(float)*k*n, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_c, h_c, sizeof(float)*m*n, cudaMemcpyHostToDevice);
+
+        
+        unsigned int grid_rows = (m + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        unsigned int grid_cols = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+        dim3 dimGrid(grid_cols, grid_rows);
+        dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+   
+        cudaError_t MMErr;
+        cudaError_t asyncErr;
+        
+        /*
+        MultiMatrices<<<3, 3>>>(d_a, d_b, d_c, 2, 2, 2);
+
+        cudaMemcpy(h_c, d_c, sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+
+        MMErr = cudaGetLastError();
+        if(MMErr != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(MMErr));
+
+        asyncErr = cudaDeviceSynchronize();
+        if(asyncErr != cudaSuccess) printf("Error: %s\n", cudaGetErrorString(asyncErr));
+        */
+
+        cudaFree(d_a);
+	        cudaFree(d_b);
+        cudaFree(d_c);
+
+        cudaFreeHost(h_a);
+        cudaFreeHost(h_b);
+        cudaFreeHost(h_c);    
+
+    }
+
+    return 0;
+}
